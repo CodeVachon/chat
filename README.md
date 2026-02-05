@@ -1,36 +1,69 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Chat
+
+A Next.js chat application built with modern tooling and component patterns.
+
+## Tech Stack
+
+- **Framework**: Next.js 16 (App Router)
+- **Runtime**: React 19
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS v4
+- **Components**: shadcn/ui with Base UI primitives
+- **Package Manager**: Bun
 
 ## Getting Started
 
-First, run the development server:
-
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
+# Install dependencies
+bun install
+
+# Start development server
 bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3367](http://localhost:3367) to view the application.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Command            | Description                                                 |
+| ------------------ | ----------------------------------------------------------- |
+| `bun dev`          | Start development server (port 3367)                        |
+| `bun build`        | Create production build                                     |
+| `bun start`        | Start production server                                     |
+| `bun lint`         | Run ESLint                                                  |
+| `bun format`       | Format code with Prettier (includes Tailwind class sorting) |
+| `bun format:check` | Check formatting without writing                            |
+| `bun typecheck`    | Run TypeScript type checking                                |
 
-## Learn More
+## Project Structure
 
-To learn more about Next.js, take a look at the following resources:
+```
+src/
+├── app/           # Next.js App Router pages and layouts
+├── components/
+│   └── ui/        # shadcn/ui components
+├── lib/           # Utilities (cn helper, etc.)
+└── styles/        # Global CSS and theme variables
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Code Quality
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Pre-commit Hooks
 
-## Deploy on Vercel
+This project uses husky + lint-staged to automatically run on staged files before each commit:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- Prettier formatting (with Tailwind class sorting)
+- ESLint (with auto-fix for imports)
+- TypeScript type checking
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### ESLint Configuration
+
+- Import sorting via `eslint-plugin-simple-import-sort`
+- Unused import removal via `eslint-plugin-unused-imports`
+- Next.js recommended rules
+
+### Adding Components
+
+```bash
+bunx shadcn@latest add [component-name]
+```
