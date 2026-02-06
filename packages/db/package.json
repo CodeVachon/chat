@@ -1,0 +1,27 @@
+{
+  "name": "@chat/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema": "./src/schema/index.ts"
+  },
+  "scripts": {
+    "db:generate": "dotenv -e ../../.env -- drizzle-kit generate",
+    "db:push": "dotenv -e ../../.env -- drizzle-kit push",
+    "db:studio": "dotenv -e ../../.env -- drizzle-kit studio",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.45.1",
+    "nanoid": "^5.1.6",
+    "pg": "^8.18.0"
+  },
+  "devDependencies": {
+    "@chat/config": "workspace:*",
+    "@types/pg": "^8.16.0",
+    "drizzle-kit": "^0.31.8",
+    "typescript": "^5"
+  }
+}

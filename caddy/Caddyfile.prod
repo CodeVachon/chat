@@ -1,0 +1,6 @@
+yourdomain.com {
+	@socketio path /socket.io/*
+	reverse_proxy @socketio localhost:3369
+	reverse_proxy localhost:3368
+	encode gzip zstd
+}

@@ -1,0 +1,22 @@
+{
+  "name": "@chat/socket",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "dotenv -e ../../.env -- bun --watch src/index.ts",
+    "start": "dotenv -e ../../.env -- bun src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@chat/events": "workspace:*",
+    "@socket.io/redis-adapter": "^8.3.0",
+    "redis": "^5.10.0",
+    "socket.io": "^4.8.3"
+  },
+  "devDependencies": {
+    "@chat/config": "workspace:*",
+    "@types/node": "^20",
+    "typescript": "^5"
+  }
+}

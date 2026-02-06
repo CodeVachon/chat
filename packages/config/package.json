@@ -1,0 +1,9 @@
+{
+  "name": "@chat/config",
+  "version": "0.0.0",
+  "private": true,
+  "dependencies": {
+    "eslint-plugin-simple-import-sort": "^12.1.1",
+    "eslint-plugin-unused-imports": "^4.3.0"
+  }
+}
