@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@chat/db": "workspace:*",
     "@chat/events": "workspace:*",
     "@socket.io/redis-adapter": "^8.3.0",
     "redis": "^5.10.0",

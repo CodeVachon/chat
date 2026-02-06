@@ -3,16 +3,9 @@ import { io, Socket } from "socket.io-client";
 
 let socket: Socket<ServerToClientEvents, ClientToServerEvents> | null = null;
 
-export function getSocket(
-    userId: string,
-    userName: string
-): Socket<ServerToClientEvents, ClientToServerEvents> {
+export function getSocket(): Socket<ServerToClientEvents, ClientToServerEvents> {
     if (!socket) {
         socket = io(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3367", {
-            auth: {
-                userId,
-                userName
-            },
             transports: ["websocket", "polling"],
             withCredentials: true
         });

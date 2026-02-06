@@ -18,6 +18,7 @@
       "name": "@chat/socket",
       "version": "0.0.0",
       "dependencies": {
+        "@chat/db": "workspace:*",
         "@chat/events": "workspace:*",
         "@socket.io/redis-adapter": "^8.3.0",
         "redis": "^5.10.0",
