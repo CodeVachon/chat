@@ -24,10 +24,7 @@ export default function DMPage({ params }: DMPageProps) {
     const [otherUser, setOtherUser] = useState<Participant | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
-    const { socket, joinConversation, leaveConversation } = useSocket({
-        userId: session?.user?.id || "",
-        userName: session?.user?.name || ""
-    });
+    const { socket, joinConversation, leaveConversation } = useSocket();
 
     const {
         messages,

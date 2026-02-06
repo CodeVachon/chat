@@ -1,3 +1,4 @@
+import { db } from "@chat/db";
 import { createAdapter } from "@socket.io/redis-adapter";
 import { createServer } from "http";
 import { createClient } from "redis";
@@ -48,20 +49,58 @@ if (redisUrl) {
     }
 }
 
+// Parse cookies from a cookie header string
+function parseCookies(cookieHeader: string): Record<string, string> {
+    const cookies: Record<string, string> = {};
+    cookieHeader.split(";").forEach((cookie) => {
+        const [name, ...rest] = cookie.trim().split("=");
+        if (name) cookies[name] = decodeURIComponent(rest.join("="));
+    });
+    return cookies;
+}
+
 // Track online users
 const onlineUsers = new Map<string, Set<string>>(); // userId -> Set of socket IDs
 
 io.on("connection", async (socket) => {
     console.log("Client connected:", socket.id);
 
-    const userId = socket.handshake.auth.userId as string;
-    const userName = socket.handshake.auth.userName as string;
+    // Authenticate via session cookie
+    const cookieHeader = socket.handshake.headers.cookie || "";
+    const cookies = parseCookies(cookieHeader);
+    const sessionToken = cookies["better-auth.session_token"];
 
-    if (!userId) {
+    if (!sessionToken) {
         socket.emit("error", { message: "Authentication required" });
         socket.disconnect();
         return;
     }
+
+    // Validate session against database
+    const session = await db.query.sessions.findFirst({
+        where: (sessions, { eq, and, gt }) =>
+            and(eq(sessions.token, sessionToken), gt(sessions.expiresAt, new Date()))
+    });
+
+    if (!session) {
+        socket.emit("error", { message: "Invalid or expired session" });
+        socket.disconnect();
+        return;
+    }
+
+    // Get user info from the validated session
+    const user = await db.query.users.findFirst({
+        where: (users, { eq }) => eq(users.id, session.userId)
+    });
+
+    if (!user) {
+        socket.emit("error", { message: "User not found" });
+        socket.disconnect();
+        return;
+    }
+
+    const userId = user.id;
+    const userName = user.name;
 
     socket.data.userId = userId;
     socket.data.userName = userName;
