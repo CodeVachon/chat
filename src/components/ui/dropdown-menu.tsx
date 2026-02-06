@@ -14,8 +14,21 @@ function DropdownMenuPortal({ ...props }: MenuPrimitive.Portal.Props) {
     return <MenuPrimitive.Portal data-slot="dropdown-menu-portal" {...props} />;
 }
 
-function DropdownMenuTrigger({ ...props }: MenuPrimitive.Trigger.Props) {
-    return <MenuPrimitive.Trigger data-slot="dropdown-menu-trigger" {...props} />;
+function DropdownMenuTrigger({
+    asChild,
+    children,
+    ...props
+}: MenuPrimitive.Trigger.Props & { asChild?: boolean }) {
+    if (asChild && React.isValidElement(children)) {
+        return (
+            <MenuPrimitive.Trigger data-slot="dropdown-menu-trigger" render={children} {...props} />
+        );
+    }
+    return (
+        <MenuPrimitive.Trigger data-slot="dropdown-menu-trigger" {...props}>
+            {children}
+        </MenuPrimitive.Trigger>
+    );
 }
 
 function DropdownMenuContent({
@@ -77,22 +90,42 @@ function DropdownMenuItem({
     className,
     inset,
     variant = "default",
+    asChild,
+    children,
     ...props
 }: MenuPrimitive.Item.Props & {
     inset?: boolean;
     variant?: "default" | "destructive";
+    asChild?: boolean;
 }) {
+    const itemClassName = cn(
+        "focus:bg-accent focus:text-accent-foreground data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 dark:data-[variant=destructive]:focus:bg-destructive/20 data-[variant=destructive]:focus:text-destructive data-[variant=destructive]:*:[svg]:text-destructive not-data-[variant=destructive]:focus:**:text-accent-foreground group/dropdown-menu-item relative flex cursor-default items-center gap-1.5 rounded-md px-1.5 py-1 text-sm outline-hidden select-none data-disabled:pointer-events-none data-disabled:opacity-50 data-inset:pl-7 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        className
+    );
+
+    if (asChild && React.isValidElement(children)) {
+        return (
+            <MenuPrimitive.Item
+                data-slot="dropdown-menu-item"
+                data-inset={inset}
+                data-variant={variant}
+                className={itemClassName}
+                render={children}
+                {...props}
+            />
+        );
+    }
+
     return (
         <MenuPrimitive.Item
             data-slot="dropdown-menu-item"
             data-inset={inset}
             data-variant={variant}
-            className={cn(
-                "focus:bg-accent focus:text-accent-foreground data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 dark:data-[variant=destructive]:focus:bg-destructive/20 data-[variant=destructive]:focus:text-destructive data-[variant=destructive]:*:[svg]:text-destructive not-data-[variant=destructive]:focus:**:text-accent-foreground group/dropdown-menu-item relative flex cursor-default items-center gap-1.5 rounded-md px-1.5 py-1 text-sm outline-hidden select-none data-disabled:pointer-events-none data-disabled:opacity-50 data-inset:pl-7 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-                className
-            )}
+            className={itemClassName}
             {...props}
-        />
+        >
+            {children}
+        </MenuPrimitive.Item>
     );
 }
 
