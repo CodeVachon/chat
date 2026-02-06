@@ -6,5 +6,6 @@ export * from "./messages";
 export * from "./organization";
 export * from "./relations";
 export * from "./sessions";
+export * from "./user-preferences";
 export * from "./users";
 export * from "./verifications";

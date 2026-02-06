@@ -6,10 +6,11 @@ import { conversationParticipants, conversations } from "./conversations";
 import { emailInvites, inviteLinks, joinRequests } from "./invites";
 import { attachments, messages, reactions } from "./messages";
 import { sessions } from "./sessions";
+import { userPreferences } from "./user-preferences";
 import { users } from "./users";
 
 // User relations
-export const usersRelations = relations(users, ({ many }) => ({
+export const usersRelations = relations(users, ({ one, many }) => ({
     sessions: many(sessions),
     accounts: many(accounts),
     channelMemberships: many(channelMembers),
@@ -18,7 +19,16 @@ export const usersRelations = relations(users, ({ many }) => ({
     reactions: many(reactions),
     conversationParticipations: many(conversationParticipants),
     inviteLinks: many(inviteLinks),
-    emailInvites: many(emailInvites)
+    emailInvites: many(emailInvites),
+    preferences: one(userPreferences)
+}));
+
+// User preferences relations
+export const userPreferencesRelations = relations(userPreferences, ({ one }) => ({
+    user: one(users, {
+        fields: [userPreferences.userId],
+        references: [users.id]
+    })
 }));
 
 // Session relations

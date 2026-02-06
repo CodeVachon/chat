@@ -96,7 +96,7 @@ export function Sidebar({ user }: SidebarProps) {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start" className="w-56">
                         <DropdownMenuItem asChild>
-                            <Link href="/settings/profile">
+                            <Link href="/settings">
                                 <Settings className="mr-2 h-4 w-4" />
                                 Settings
                             </Link>

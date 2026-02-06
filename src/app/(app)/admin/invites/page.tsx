@@ -16,6 +16,7 @@ import {
     SelectValue
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useFormattedDate } from "@/hooks/use-formatted-date";
 import { useSession } from "@/lib/auth-client";
 
 interface InviteLink {
@@ -40,6 +41,7 @@ interface JoinRequest {
 
 export default function InvitesPage() {
     useSession(); // Ensures user is authenticated
+    const { formatDate } = useFormattedDate();
     const [links, setLinks] = useState<InviteLink[]>([]);
     const [requests, setRequests] = useState<JoinRequest[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -280,7 +282,7 @@ export default function InvitesPage() {
                                                     Created by{" "}
                                                     {link.createdByUser?.name || "Unknown"}
                                                     {link.expiresAt &&
-                                                        ` · Expires ${new Date(link.expiresAt).toLocaleDateString()}`}
+                                                        ` · Expires ${formatDate(link.expiresAt)}`}
                                                 </p>
                                             </div>
                                             <Button

@@ -1,6 +1,5 @@
 "use client";
 
-import { formatDistanceToNow } from "date-fns";
 import { Edit, MessageSquare, MoreHorizontal, Smile, Trash } from "lucide-react";
 import Image from "next/image";
 import { useState } from "react";
@@ -14,6 +13,7 @@ import {
     DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useFormattedDate } from "@/hooks/use-formatted-date";
 import type { MessagePayload } from "@/lib/socket-events";
 import { cn } from "@/lib/utils";
 
@@ -41,6 +41,7 @@ export function MessageItem({
 }: MessageItemProps) {
     const [isEditing, setIsEditing] = useState(false);
     const [isHovered, setIsHovered] = useState(false);
+    const { formatMessage } = useFormattedDate();
 
     const handleEdit = (content: string) => {
         onEdit(message.id, content);
@@ -83,7 +84,7 @@ export function MessageItem({
                     <div className="mb-1 flex items-baseline gap-2">
                         <span className="font-semibold">{message.author.name}</span>
                         <span className="text-muted-foreground text-xs">
-                            {formatDistanceToNow(new Date(message.createdAt), { addSuffix: true })}
+                            {formatMessage(message.createdAt)}
                         </span>
                         {message.editedAt && (
                             <span className="text-muted-foreground text-xs">(edited)</span>
