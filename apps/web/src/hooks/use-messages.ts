@@ -128,6 +128,9 @@ export function useMessages({ socket, channelId, conversationId }: UseMessagesOp
                     const existing = reactions.find((r) => r.emoji === data.emoji);
 
                     if (existing) {
+                        // Skip if this user already in the list (optimistic update already applied)
+                        if (existing.users.some((u) => u.id === data.userId)) return m;
+
                         return {
                             ...m,
                             reactions: reactions.map((r) =>
@@ -167,6 +170,11 @@ export function useMessages({ socket, channelId, conversationId }: UseMessagesOp
                     if (m.id !== data.messageId) return m;
 
                     const reactions = m.reactions || [];
+                    const existing = reactions.find((r) => r.emoji === data.emoji);
+
+                    // Skip if already removed (optimistic update already applied)
+                    if (!existing || !existing.users.some((u) => u.id === data.userId)) return m;
+
                     return {
                         ...m,
                         reactions: reactions
@@ -315,7 +323,10 @@ export function useMessages({ socket, channelId, conversationId }: UseMessagesOp
                 const reactions = m.reactions || [];
 
                 if (result.action === "removed") {
-                    // Remove the reaction
+                    const existing = reactions.find((r) => r.emoji === emoji);
+                    // Skip if socket event already removed it
+                    if (!existing || !existing.users.some((u) => u.id === result.userId)) return m;
+
                     return {
                         ...m,
                         reactions: reactions
@@ -332,6 +343,9 @@ export function useMessages({ socket, channelId, conversationId }: UseMessagesOp
                 } else {
                     // Add the reaction
                     const existing = reactions.find((r) => r.emoji === emoji);
+                    // Skip if socket event already added it
+                    if (existing?.users.some((u) => u.id === result.userId)) return m;
+
                     if (existing) {
                         return {
                             ...m,
