@@ -18,6 +18,14 @@ export function getSocket(): Socket<ServerToClientEvents, ClientToServerEvents> 
             console.log("Disconnected from socket server");
         });
 
+        // Auth failures from server middleware arrive as connect_error.
+        // Disable reconnect to prevent infinite retry loops.
+        const s = socket;
+        socket.on("connect_error", (err) => {
+            console.error("Socket connection error:", err.message);
+            s.io.opts.reconnection = false;
+        });
+
         socket.on("error", (data) => {
             console.error("Socket error:", data.message);
         });

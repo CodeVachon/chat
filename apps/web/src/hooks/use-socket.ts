@@ -44,15 +44,21 @@ export function useSocket() {
             setConnectionError(data.message);
         };
 
+        const handleConnectError = (err: Error) => {
+            setConnectionError(err.message);
+        };
+
         const handleConnect = () => {
             setConnectionError(null);
         };
 
         socket.on("error", handleError);
+        socket.on("connect_error", handleConnectError);
         socket.on("connect", handleConnect);
 
         return () => {
             socket.off("error", handleError);
+            socket.off("connect_error", handleConnectError);
             socket.off("connect", handleConnect);
         };
     }, [socket]);
