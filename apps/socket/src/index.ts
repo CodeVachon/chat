@@ -59,51 +59,48 @@ function parseCookies(cookieHeader: string): Record<string, string> {
     return cookies;
 }
 
-// Track online users
-const onlineUsers = new Map<string, Set<string>>(); // userId -> Set of socket IDs
-
-io.on("connection", async (socket) => {
-    console.log("Client connected:", socket.id);
-
-    // Authenticate via session cookie
+// Authenticate via session cookie middleware
+// Using io.use() ensures auth failures send `connect_error` to the client,
+// which prevents Socket.io from auto-reconnecting on auth rejection.
+io.use(async (socket, next) => {
     const cookieHeader = socket.handshake.headers.cookie || "";
     const cookies = parseCookies(cookieHeader);
     const sessionToken = cookies["better-auth.session_token"];
 
     if (!sessionToken) {
-        socket.emit("error", { message: "Authentication required" });
-        socket.disconnect();
-        return;
+        return next(new Error("Authentication required"));
     }
 
-    // Validate session against database
     const session = await db.query.sessions.findFirst({
         where: (sessions, { eq, and, gt }) =>
             and(eq(sessions.token, sessionToken), gt(sessions.expiresAt, new Date()))
     });
 
     if (!session) {
-        socket.emit("error", { message: "Invalid or expired session" });
-        socket.disconnect();
-        return;
+        return next(new Error("Invalid or expired session"));
     }
 
-    // Get user info from the validated session
     const user = await db.query.users.findFirst({
         where: (users, { eq }) => eq(users.id, session.userId)
     });
 
     if (!user) {
-        socket.emit("error", { message: "User not found" });
-        socket.disconnect();
-        return;
+        return next(new Error("User not found"));
     }
 
-    const userId = user.id;
-    const userName = user.name;
+    socket.data.userId = user.id;
+    socket.data.userName = user.name;
+    next();
+});
 
-    socket.data.userId = userId;
-    socket.data.userName = userName;
+// Track online users
+const onlineUsers = new Map<string, Set<string>>(); // userId -> Set of socket IDs
+
+io.on("connection", (socket) => {
+    const userId = socket.data.userId!;
+    const userName = socket.data.userName!;
+
+    console.log("Client connected:", socket.id, `(user: ${userId})`);
 
     // Track online status
     if (!onlineUsers.has(userId)) {
