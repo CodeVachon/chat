@@ -8,19 +8,13 @@ import { disconnectSocket, getSocket } from "@/lib/socket";
 
 type SocketType = Socket<ServerToClientEvents, ClientToServerEvents>;
 
-interface UseSocketOptions {
-    userId: string;
-    userName: string;
-}
-
-export function useSocket({ userId, userName }: UseSocketOptions) {
+export function useSocket() {
     const [connectionError, setConnectionError] = useState<string | null>(null);
 
     // getSocket is a singleton factory — safe to call in useMemo
-    const socket = useMemo<SocketType | null>(() => {
-        if (!userId || !userName) return null;
-        return getSocket(userId, userName);
-    }, [userId, userName]);
+    const socket = useMemo<SocketType>(() => {
+        return getSocket();
+    }, []);
 
     // Subscribe to connection state via useSyncExternalStore
     const subscribe = useCallback(
@@ -50,15 +44,21 @@ export function useSocket({ userId, userName }: UseSocketOptions) {
             setConnectionError(data.message);
         };
 
+        const handleConnectError = (err: Error) => {
+            setConnectionError(err.message);
+        };
+
         const handleConnect = () => {
             setConnectionError(null);
         };
 
         socket.on("error", handleError);
+        socket.on("connect_error", handleConnectError);
         socket.on("connect", handleConnect);
 
         return () => {
             socket.off("error", handleError);
+            socket.off("connect_error", handleConnectError);
             socket.off("connect", handleConnect);
         };
     }, [socket]);

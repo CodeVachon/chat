@@ -39,10 +39,7 @@ export default function ChannelPage({ params }: ChannelPageProps) {
     const [showMembers, setShowMembers] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
 
-    const { socket, joinChannel, leaveChannel } = useSocket({
-        userId: session?.user?.id || "",
-        userName: session?.user?.name || ""
-    });
+    const { socket, joinChannel, leaveChannel } = useSocket();
 
     const {
         messages,

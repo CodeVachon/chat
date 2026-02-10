@@ -1,3 +1,4 @@
+import { db } from "@chat/db";
 import { createAdapter } from "@socket.io/redis-adapter";
 import { createServer } from "http";
 import { createClient } from "redis";
@@ -48,23 +49,58 @@ if (redisUrl) {
     }
 }
 
+// Parse cookies from a cookie header string
+function parseCookies(cookieHeader: string): Record<string, string> {
+    const cookies: Record<string, string> = {};
+    cookieHeader.split(";").forEach((cookie) => {
+        const [name, ...rest] = cookie.trim().split("=");
+        if (name) cookies[name] = decodeURIComponent(rest.join("="));
+    });
+    return cookies;
+}
+
+// Authenticate via session cookie middleware
+// Using io.use() ensures auth failures send `connect_error` to the client,
+// which prevents Socket.io from auto-reconnecting on auth rejection.
+io.use(async (socket, next) => {
+    const cookieHeader = socket.handshake.headers.cookie || "";
+    const cookies = parseCookies(cookieHeader);
+    const sessionToken = cookies["better-auth.session_token"];
+
+    if (!sessionToken) {
+        return next(new Error("Authentication required"));
+    }
+
+    const session = await db.query.sessions.findFirst({
+        where: (sessions, { eq, and, gt }) =>
+            and(eq(sessions.token, sessionToken), gt(sessions.expiresAt, new Date()))
+    });
+
+    if (!session) {
+        return next(new Error("Invalid or expired session"));
+    }
+
+    const user = await db.query.users.findFirst({
+        where: (users, { eq }) => eq(users.id, session.userId)
+    });
+
+    if (!user) {
+        return next(new Error("User not found"));
+    }
+
+    socket.data.userId = user.id;
+    socket.data.userName = user.name;
+    next();
+});
+
 // Track online users
 const onlineUsers = new Map<string, Set<string>>(); // userId -> Set of socket IDs
 
-io.on("connection", async (socket) => {
-    console.log("Client connected:", socket.id);
+io.on("connection", (socket) => {
+    const userId = socket.data.userId!;
+    const userName = socket.data.userName!;
 
-    const userId = socket.handshake.auth.userId as string;
-    const userName = socket.handshake.auth.userName as string;
-
-    if (!userId) {
-        socket.emit("error", { message: "Authentication required" });
-        socket.disconnect();
-        return;
-    }
-
-    socket.data.userId = userId;
-    socket.data.userName = userName;
+    console.log("Client connected:", socket.id, `(user: ${userId})`);
 
     // Track online status
     if (!onlineUsers.has(userId)) {
