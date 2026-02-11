@@ -96,6 +96,20 @@ export function useMessages({ socket, channelId, conversationId }: UseMessagesOp
                     if (prev.messages.some((m) => m.id === message.id)) {
                         return prev;
                     }
+                    // If there's a pending temp message with matching content from the same
+                    // channel/conversation, replace it with the server-confirmed message
+                    const tempIndex = prev.messages.findIndex(
+                        (m) =>
+                            m.id.startsWith("temp-") &&
+                            m.content === message.content &&
+                            m.channelId === message.channelId &&
+                            m.conversationId === message.conversationId
+                    );
+                    if (tempIndex !== -1) {
+                        const updated = [...prev.messages];
+                        updated[tempIndex] = message;
+                        return { ...prev, messages: updated };
+                    }
                     return {
                         ...prev,
                         messages: [...prev.messages, message]
@@ -219,34 +233,66 @@ export function useMessages({ socket, channelId, conversationId }: UseMessagesOp
         fetchMessages();
     }, [fetchMessages]);
 
-    // Send message
+    // Send message with optimistic update and rollback on failure
     const sendMessage = useCallback(
         async (content: string, parentId?: string) => {
             if (!channelId && !conversationId) return;
 
-            const endpoint = channelId
-                ? `/api/channels/${channelId}/messages`
-                : `/api/dm/${conversationId}/messages`;
+            // Create a temporary optimistic message shown immediately
+            const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+            const optimisticMessage: MessagePayload = {
+                id: tempId,
+                content,
+                contentHtml: null,
+                channelId: channelId || null,
+                conversationId: conversationId || null,
+                authorId: "",
+                parentId: parentId || null,
+                createdAt: new Date().toISOString(),
+                editedAt: null,
+                author: { id: "", name: "", image: null },
+                reactions: [],
+                attachments: []
+            };
 
-            const response = await fetch(endpoint, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ content, parentId })
-            });
-
-            if (!response.ok) {
-                throw new Error("Failed to send message");
-            }
-
-            const newMessage = await response.json();
-
-            // Optimistically add the message to state
+            // Add optimistic message to state immediately
             setState((prev) => ({
                 ...prev,
-                messages: [...prev.messages, newMessage]
+                messages: [...prev.messages, optimisticMessage]
             }));
 
-            return newMessage;
+            try {
+                const endpoint = channelId
+                    ? `/api/channels/${channelId}/messages`
+                    : `/api/dm/${conversationId}/messages`;
+
+                const response = await fetch(endpoint, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ content, parentId })
+                });
+
+                if (!response.ok) {
+                    throw new Error("Failed to send message");
+                }
+
+                const serverMessage = await response.json();
+
+                // Replace the temp message with the server-confirmed one
+                setState((prev) => ({
+                    ...prev,
+                    messages: prev.messages.map((m) => (m.id === tempId ? serverMessage : m))
+                }));
+
+                return serverMessage;
+            } catch (error) {
+                // Rollback: remove the failed optimistic message
+                setState((prev) => ({
+                    ...prev,
+                    messages: prev.messages.filter((m) => m.id !== tempId)
+                }));
+                throw error;
+            }
         },
         [channelId, conversationId]
     );
