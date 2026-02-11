@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
 
 import { MessageInput, MessageList, TypingIndicator } from "@/components/chat";
 import { Header, MemberList } from "@/components/layout";
@@ -65,6 +66,7 @@ export default function ChannelPage({ params }: ChannelPageProps) {
                 }
             } catch (err) {
                 console.error("Error fetching channel:", err);
+                toast.error("Failed to load channel");
             } finally {
                 setIsLoading(false);
             }
@@ -100,29 +102,45 @@ export default function ChannelPage({ params }: ChannelPageProps) {
 
     const handleSend = useCallback(
         async (content: string) => {
-            stopTyping();
-            await sendMessage(content);
+            try {
+                stopTyping();
+                await sendMessage(content);
+            } catch {
+                toast.error("Failed to send message");
+            }
         },
         [sendMessage, stopTyping]
     );
 
     const handleEdit = useCallback(
         async (messageId: string, content: string) => {
-            await editMessage(messageId, content);
+            try {
+                await editMessage(messageId, content);
+            } catch {
+                toast.error("Failed to edit message");
+            }
         },
         [editMessage]
     );
 
     const handleDelete = useCallback(
         async (messageId: string) => {
-            await deleteMessage(messageId);
+            try {
+                await deleteMessage(messageId);
+            } catch {
+                toast.error("Failed to delete message");
+            }
         },
         [deleteMessage]
     );
 
     const handleReact = useCallback(
         async (messageId: string, emoji: string) => {
-            await toggleReaction(messageId, emoji);
+            try {
+                await toggleReaction(messageId, emoji);
+            } catch {
+                toast.error("Failed to toggle reaction");
+            }
         },
         [toggleReaction]
     );
