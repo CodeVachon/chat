@@ -301,6 +301,9 @@ export function useMessages({ socket, channelId, conversationId }: UseMessagesOp
     }, []);
 
     // Toggle reaction
+    // The API call triggers a socket event which is the single source of truth
+    // for updating reaction state. This avoids race conditions between the
+    // optimistic update and the socket event arriving at different times.
     const toggleReaction = useCallback(async (messageId: string, emoji: string) => {
         const response = await fetch(`/api/messages/${messageId}/reactions`, {
             method: "POST",
@@ -312,73 +315,7 @@ export function useMessages({ socket, channelId, conversationId }: UseMessagesOp
             throw new Error("Failed to toggle reaction");
         }
 
-        const result = await response.json();
-
-        // Update reactions in state
-        setState((prev) => ({
-            ...prev,
-            messages: prev.messages.map((m) => {
-                if (m.id !== messageId) return m;
-
-                const reactions = m.reactions || [];
-
-                if (result.action === "removed") {
-                    const existing = reactions.find((r) => r.emoji === emoji);
-                    // Skip if socket event already removed it
-                    if (!existing || !existing.users.some((u) => u.id === result.userId)) return m;
-
-                    return {
-                        ...m,
-                        reactions: reactions
-                            .map((r) => {
-                                if (r.emoji !== emoji) return r;
-                                return {
-                                    ...r,
-                                    count: r.count - 1,
-                                    users: r.users.filter((u) => u.id !== result.userId)
-                                };
-                            })
-                            .filter((r) => r.count > 0)
-                    };
-                } else {
-                    // Add the reaction
-                    const existing = reactions.find((r) => r.emoji === emoji);
-                    // Skip if socket event already added it
-                    if (existing?.users.some((u) => u.id === result.userId)) return m;
-
-                    if (existing) {
-                        return {
-                            ...m,
-                            reactions: reactions.map((r) =>
-                                r.emoji === emoji
-                                    ? {
-                                          ...r,
-                                          count: r.count + 1,
-                                          users: [
-                                              ...r.users,
-                                              { id: result.userId, name: result.userName }
-                                          ]
-                                      }
-                                    : r
-                            )
-                        };
-                    }
-                    return {
-                        ...m,
-                        reactions: [
-                            ...reactions,
-                            {
-                                emoji,
-                                count: 1,
-                                users: [{ id: result.userId, name: result.userName }]
-                            }
-                        ]
-                    };
-                }
-            })
-        }));
-
-        return result;
+        return await response.json();
     }, []);
 
     return {
