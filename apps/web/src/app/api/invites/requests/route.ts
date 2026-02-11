@@ -11,6 +11,7 @@ import {
     unauthorized
 } from "@/lib/api-utils";
 import { canManageMembers } from "@/lib/permissions";
+import { rateLimitPublic } from "@/lib/rate-limit";
 
 // GET /api/invites/requests - List join requests
 export async function GET() {
@@ -42,6 +43,10 @@ export async function GET() {
 // POST /api/invites/requests - Submit join request (public)
 export async function POST(request: Request) {
     try {
+        // Stricter rate limit for unauthenticated endpoint: 5 per minute
+        const rateLimited = await rateLimitPublic("join-requests");
+        if (rateLimited) return rateLimited;
+
         const body = await request.json();
         const { email, name, message } = body;
 

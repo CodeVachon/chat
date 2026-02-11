@@ -13,6 +13,7 @@ import {
     unauthorized
 } from "@/lib/api-utils";
 import { canViewChannel } from "@/lib/permissions";
+import { rateLimit } from "@/lib/rate-limit";
 
 interface RouteParams {
     params: Promise<{ id: string }>;
@@ -21,6 +22,10 @@ interface RouteParams {
 // POST /api/messages/[id]/reactions - Toggle reaction
 export async function POST(request: Request, { params }: RouteParams) {
     try {
+        // Rate limit: 60 reactions per minute per IP
+        const rateLimited = await rateLimit("reactions", 60, 60_000);
+        if (rateLimited) return rateLimited;
+
         const user = await getAuthenticatedUser();
         if (!user) return unauthorized();
 
