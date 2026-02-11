@@ -3,7 +3,7 @@
 	admin off
 }
 
-:3367 {
+chat.local:80 {
 	@socketio path /socket.io/*
 	reverse_proxy @socketio localhost:3369
 
