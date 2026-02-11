@@ -63,25 +63,32 @@ export const reactions = pgTable(
         emoji: varchar("emoji", { length: 50 }).notNull(),
         createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
     },
-    (table) => [unique("reactions_unique").on(table.messageId, table.userId, table.emoji)]
+    (table) => [
+        unique("reactions_unique").on(table.messageId, table.userId, table.emoji),
+        index("reactions_message_idx").on(table.messageId)
+    ]
 );
 
-export const attachments = pgTable("attachments", {
-    id: varchar("id", { length: 36 })
-        .primaryKey()
-        .$defaultFn(() => nanoid()),
-    messageId: varchar("message_id", { length: 36 })
-        .notNull()
-        .references(() => messages.id, { onDelete: "cascade" }),
-    cloudinaryId: varchar("cloudinary_id", { length: 255 }).notNull(),
-    url: text("url").notNull(),
-    filename: varchar("filename", { length: 255 }).notNull(),
-    mimeType: varchar("mime_type", { length: 100 }),
-    size: bigint("size", { mode: "number" }),
-    width: integer("width"),
-    height: integer("height"),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
-});
+export const attachments = pgTable(
+    "attachments",
+    {
+        id: varchar("id", { length: 36 })
+            .primaryKey()
+            .$defaultFn(() => nanoid()),
+        messageId: varchar("message_id", { length: 36 })
+            .notNull()
+            .references(() => messages.id, { onDelete: "cascade" }),
+        cloudinaryId: varchar("cloudinary_id", { length: 255 }).notNull(),
+        url: text("url").notNull(),
+        filename: varchar("filename", { length: 255 }).notNull(),
+        mimeType: varchar("mime_type", { length: 100 }),
+        size: bigint("size", { mode: "number" }),
+        width: integer("width"),
+        height: integer("height"),
+        createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+    },
+    (table) => [index("attachments_message_idx").on(table.messageId)]
+);
 
 export type Message = typeof messages.$inferSelect;
 export type NewMessage = typeof messages.$inferInsert;
