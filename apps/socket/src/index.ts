@@ -65,11 +65,17 @@ function parseCookies(cookieHeader: string): Record<string, string> {
 io.use(async (socket, next) => {
     const cookieHeader = socket.handshake.headers.cookie || "";
     const cookies = parseCookies(cookieHeader);
-    const sessionToken = cookies["better-auth.session_token"];
+    const rawSessionToken = cookies["better-auth.session_token"];
 
-    if (!sessionToken) {
+    if (!rawSessionToken) {
         return next(new Error("Authentication required"));
     }
+
+    // better-auth stores signed cookies as "token.signature" — strip the
+    // HMAC-SHA256 base64 signature (last 44 chars after the final dot) so
+    // we can look up the raw token stored in the database.
+    const lastDot = rawSessionToken.lastIndexOf(".");
+    const sessionToken = lastDot !== -1 ? rawSessionToken.substring(0, lastDot) : rawSessionToken;
 
     const session = await db.query.sessions.findFirst({
         where: (sessions, { eq, and, gt }) =>
