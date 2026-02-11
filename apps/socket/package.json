@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "dotenv -e ../../.env -- bun --watch src/index.ts",
     "start": "dotenv -e ../../.env -- bun src/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -18,6 +20,7 @@
   "devDependencies": {
     "@chat/config": "workspace:*",
     "@types/node": "^20",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.0.18"
   }
 }
