@@ -59,7 +59,7 @@ function SignupFormContent() {
                 });
             }
 
-            router.push("/");
+            window.location.href = "/";
         } catch (err) {
             setError(err instanceof Error ? err.message : "Something went wrong");
         } finally {

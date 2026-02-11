@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,6 @@ import { Separator } from "@/components/ui/separator";
 import { signIn } from "@/lib/auth-client";
 
 export function LoginForm() {
-    const router = useRouter();
     const searchParams = useSearchParams();
     const callbackUrl = searchParams.get("callbackUrl") || "/";
 
@@ -35,7 +34,7 @@ export function LoginForm() {
                 throw new Error(result.error.message || "Invalid credentials");
             }
 
-            router.push(callbackUrl);
+            window.location.href = callbackUrl;
         } catch (err) {
             setError(err instanceof Error ? err.message : "Something went wrong");
         } finally {
