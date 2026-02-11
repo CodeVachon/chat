@@ -71,6 +71,7 @@
         "eslint-plugin-unused-imports": "^4.3.0",
         "tailwindcss": "^4",
         "typescript": "^5",
+        "vitest": "^4.0.18",
       },
     },
     "packages/config": {

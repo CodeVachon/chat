@@ -13,6 +13,7 @@ import {
     serverError,
     unauthorized
 } from "@/lib/api-utils";
+import { validateMessageContext } from "@/lib/message-validation";
 import { canPostInChannel, canViewChannel } from "@/lib/permissions";
 
 interface RouteParams {
@@ -167,6 +168,12 @@ export async function POST(request: Request, { params }: RouteParams) {
 
         if (!content || content.trim().length === 0) {
             return badRequest("Message content is required");
+        }
+
+        // Validate message context: channel messages must not include conversationId
+        const contextCheck = validateMessageContext({ channelId: id, ...body });
+        if (!contextCheck.valid) {
+            return badRequest(contextCheck.error);
         }
 
         // If replying to a thread, verify the parent message exists

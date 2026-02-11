@@ -12,6 +12,7 @@ import {
     serverError,
     unauthorized
 } from "@/lib/api-utils";
+import { validateMessageContext } from "@/lib/message-validation";
 
 interface RouteParams {
     params: Promise<{ id: string }>;
@@ -154,6 +155,12 @@ export async function POST(request: Request, { params }: RouteParams) {
 
         if (!content || content.trim().length === 0) {
             return badRequest("Message content is required");
+        }
+
+        // Validate message context: DM messages must not include channelId
+        const contextCheck = validateMessageContext({ conversationId: id, ...body });
+        if (!contextCheck.valid) {
+            return badRequest(contextCheck.error);
         }
 
         // Create message
