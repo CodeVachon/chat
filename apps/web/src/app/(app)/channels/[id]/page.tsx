@@ -4,6 +4,7 @@ import { use, useCallback, useEffect, useState } from "react";
 
 import { MessageInput, MessageList, TypingIndicator } from "@/components/chat";
 import { Header, MemberList } from "@/components/layout";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useMessages, useSocket, useTyping } from "@/hooks";
 import { useSession } from "@/lib/auth-client";
 
@@ -144,7 +145,7 @@ export default function ChannelPage({ params }: ChannelPageProps) {
     }
 
     return (
-        <div className="flex flex-1 overflow-hidden">
+        <div className="relative flex flex-1 overflow-hidden">
             <div className="flex flex-1 flex-col">
                 <Header
                     type="channel"
@@ -174,7 +175,21 @@ export default function ChannelPage({ params }: ChannelPageProps) {
                 />
             </div>
 
-            {showMembers && <MemberList members={members} />}
+            {/* Desktop: overlay member panel (doesn't push content) */}
+            {showMembers && (
+                <div className="absolute inset-y-0 right-0 hidden md:flex">
+                    <MemberList members={members} />
+                </div>
+            )}
+
+            {/* Mobile/Tablet: slide-out sheet */}
+            <div className="md:hidden">
+                <Sheet open={showMembers} onOpenChange={setShowMembers}>
+                    <SheetContent side="right" showCloseButton={false} className="!w-60 gap-0 p-0">
+                        <MemberList members={members} />
+                    </SheetContent>
+                </Sheet>
+            </div>
         </div>
     );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { Hash, Info, Settings, Users } from "lucide-react";
+import { Hash, Info, Menu, Settings, Users } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -11,6 +11,7 @@ import {
     SheetTitle,
     SheetTrigger
 } from "@/components/ui/sheet";
+import { useSidebar } from "@/hooks";
 
 interface HeaderProps {
     type: "channel" | "dm";
@@ -29,9 +30,21 @@ export function Header({
     onMembersClick,
     onSettingsClick
 }: HeaderProps) {
+    const { toggle } = useSidebar();
+
     return (
         <div className="bg-card flex h-14 shrink-0 items-center justify-between border-b px-4">
             <div className="flex items-center gap-2">
+                {/* Mobile sidebar toggle - visible only below md */}
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="md:hidden"
+                    onClick={toggle}
+                    aria-label="Toggle sidebar"
+                >
+                    <Menu className="h-5 w-5" />
+                </Button>
                 {type === "channel" && (
                     <span className="text-muted-foreground">
                         {emoji || <Hash className="h-5 w-5" />}

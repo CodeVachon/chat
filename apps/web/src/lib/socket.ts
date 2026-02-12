@@ -1,14 +1,21 @@
 import type { ClientToServerEvents, ServerToClientEvents } from "@chat/events";
 import { io, Socket } from "socket.io-client";
 
-let socket: Socket<ServerToClientEvents, ClientToServerEvents> | null = null;
+type SocketType = Socket<ServerToClientEvents, ClientToServerEvents>;
 
-export function getSocket(): Socket<ServerToClientEvents, ClientToServerEvents> {
+let socket: SocketType | null = null;
+let listenersRegistered = false;
+
+export function getSocket(): SocketType {
     if (!socket) {
         socket = io(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3367", {
             transports: ["websocket", "polling"],
             withCredentials: true
         });
+    }
+
+    if (!listenersRegistered) {
+        listenersRegistered = true;
 
         socket.on("connect", () => {
             console.log("Connected to socket server");
@@ -36,7 +43,9 @@ export function getSocket(): Socket<ServerToClientEvents, ClientToServerEvents> 
 
 export function disconnectSocket() {
     if (socket) {
+        socket.removeAllListeners();
         socket.disconnect();
         socket = null;
+        listenersRegistered = false;
     }
 }
