@@ -10,8 +10,8 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit",
-    "test:e2e": "dotenv -e ../../.env -- playwright test"
+    "test:e2e": "dotenv -e ../../.env -- playwright test",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@base-ui/react": "^1.1.0",

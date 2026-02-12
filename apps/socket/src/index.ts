@@ -12,6 +12,7 @@ import type {
 } from "@chat/events";
 import { subscribeToEvents } from "@chat/events/subscriber";
 
+import { cleanupSocket, isSocketEventAllowed } from "./rate-limit.js";
 import { gracefulShutdown } from "./shutdown";
 
 const port = parseInt(process.env.SOCKET_PORT || "3369", 10);
@@ -133,27 +134,33 @@ io.on("connection", (socket) => {
     // Join user's personal room for DMs
     socket.join(`user:${userId}`);
 
-    // Handle joining channels
+    // Handle joining channels (20 joins per minute)
     socket.on("join:channel", (channelId) => {
+        if (!isSocketEventAllowed(socket.id, "join:channel", 20, 60_000)) return;
         socket.join(`channel:${channelId}`);
         console.log(`User ${userId} joined channel ${channelId}`);
     });
 
     socket.on("leave:channel", (channelId) => {
+        if (!isSocketEventAllowed(socket.id, "leave:channel", 20, 60_000)) return;
         socket.leave(`channel:${channelId}`);
         console.log(`User ${userId} left channel ${channelId}`);
     });
 
     socket.on("join:conversation", (conversationId) => {
+        if (!isSocketEventAllowed(socket.id, "join:conversation", 20, 60_000)) return;
         socket.join(`conversation:${conversationId}`);
     });
 
     socket.on("leave:conversation", (conversationId) => {
+        if (!isSocketEventAllowed(socket.id, "leave:conversation", 20, 60_000)) return;
         socket.leave(`conversation:${conversationId}`);
     });
 
-    // Handle typing indicators
+    // Handle typing indicators (10 typing events per 10 seconds)
     socket.on("typing:start", (data) => {
+        if (!isSocketEventAllowed(socket.id, "typing:start", 10, 10_000)) return;
+
         const payload = {
             userId,
             userName,
@@ -168,6 +175,8 @@ io.on("connection", (socket) => {
     });
 
     socket.on("typing:stop", (data) => {
+        if (!isSocketEventAllowed(socket.id, "typing:stop", 10, 10_000)) return;
+
         const payload = {
             userId,
             userName,
@@ -184,6 +193,7 @@ io.on("connection", (socket) => {
     // Handle disconnection
     socket.on("disconnect", () => {
         console.log("Client disconnected:", socket.id);
+        cleanupSocket(socket.id);
 
         const userSockets = onlineUsers.get(userId);
         if (userSockets) {
