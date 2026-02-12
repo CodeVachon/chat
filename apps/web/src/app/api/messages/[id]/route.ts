@@ -117,7 +117,6 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         const payload = {
             id: updatedMessage.id,
             content: updatedMessage.content,
-            contentHtml: updatedMessage.contentHtml,
             channelId: updatedMessage.channelId,
             conversationId: updatedMessage.conversationId,
             authorId: updatedMessage.authorId,

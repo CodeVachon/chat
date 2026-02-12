@@ -80,21 +80,13 @@ export function useTyping({ socket, channelId, conversationId }: UseTypingOption
             socket.off("typing:start", handleTypingStart);
             socket.off("typing:stop", handleTypingStop);
 
-            // Clear all timeouts
+            // Clear all timeouts and typing users on cleanup (when
+            // channelId/conversationId changes, this effect re-runs)
             timeouts.forEach((timeout) => clearTimeout(timeout));
             timeouts.clear();
+            setTypingUsers([]);
         };
     }, [socket, channelId, conversationId]);
-
-    // Clear typing users when channel/conversation changes (adjust state during render)
-    const [prevChannelId, setPrevChannelId] = useState(channelId);
-    const [prevConversationId, setPrevConversationId] = useState(conversationId);
-    if (channelId !== prevChannelId || conversationId !== prevConversationId) {
-        setPrevChannelId(channelId);
-        setPrevConversationId(conversationId);
-        setTypingUsers([]);
-        // Timeouts are cleared by the socket effect cleanup above
-    }
 
     // Stop typing indicator
     const stopTyping = useCallback(() => {

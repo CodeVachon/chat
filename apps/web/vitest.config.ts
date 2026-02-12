@@ -1,16 +1,17 @@
-import path from "path";
+import { resolve } from "path";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
-    resolve: {
-        alias: {
-            "@": path.resolve(__dirname, "src")
-        }
-    },
     test: {
         globals: true,
-        environment: "node",
-        include: ["src/**/*.test.ts"],
+        environment: "jsdom",
+        include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
         restoreMocks: true
+    },
+    resolve: {
+        alias: {
+            "@": resolve(__dirname, "src"),
+            "@chat/events": resolve(__dirname, "../../packages/events/src/socket-events.ts")
+        }
     }
 });
