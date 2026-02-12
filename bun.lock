@@ -28,6 +28,7 @@
         "@chat/config": "workspace:*",
         "@types/node": "^20",
         "typescript": "^5",
+        "vitest": "^4.0.18",
       },
     },
     "apps/web": {
