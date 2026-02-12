@@ -1,4 +1,13 @@
-import { boolean, integer, pgEnum, pgTable, text, timestamp, varchar } from "drizzle-orm/pg-core";
+import {
+    boolean,
+    index,
+    integer,
+    pgEnum,
+    pgTable,
+    text,
+    timestamp,
+    varchar
+} from "drizzle-orm/pg-core";
 import { nanoid } from "nanoid";
 
 import { users } from "./users";
@@ -25,19 +34,23 @@ export const inviteLinks = pgTable("invite_links", {
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
 });
 
-export const emailInvites = pgTable("email_invites", {
-    id: varchar("id", { length: 36 })
-        .primaryKey()
-        .$defaultFn(() => nanoid()),
-    email: varchar("email", { length: 255 }).notNull(),
-    invitedBy: varchar("invited_by", { length: 36 })
-        .notNull()
-        .references(() => users.id, { onDelete: "cascade" }),
-    token: varchar("token", { length: 64 }).notNull().unique(),
-    status: inviteStatusEnum("status").notNull().default("pending"),
-    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
-});
+export const emailInvites = pgTable(
+    "email_invites",
+    {
+        id: varchar("id", { length: 36 })
+            .primaryKey()
+            .$defaultFn(() => nanoid()),
+        email: varchar("email", { length: 255 }).notNull(),
+        invitedBy: varchar("invited_by", { length: 36 })
+            .notNull()
+            .references(() => users.id, { onDelete: "cascade" }),
+        token: varchar("token", { length: 64 }).notNull().unique(),
+        status: inviteStatusEnum("status").notNull().default("pending"),
+        expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+        createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+    },
+    (table) => [index("email_invites_email_idx").on(table.email)]
+);
 
 export const joinRequests = pgTable("join_requests", {
     id: varchar("id", { length: 36 })

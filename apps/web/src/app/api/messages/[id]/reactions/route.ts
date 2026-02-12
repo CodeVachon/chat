@@ -14,6 +14,7 @@ import {
 } from "@/lib/api-utils";
 import { canViewChannel } from "@/lib/permissions";
 import { rateLimit } from "@/lib/rate-limit";
+import { validateEmoji } from "@/lib/validators";
 
 interface RouteParams {
     params: Promise<{ id: string }>;
@@ -34,8 +35,9 @@ export async function POST(request: Request, { params }: RouteParams) {
         const body = await request.json();
         const { emoji } = body;
 
-        if (!emoji || emoji.trim().length === 0) {
-            return badRequest("Emoji is required");
+        const emojiError = validateEmoji(emoji);
+        if (emojiError) {
+            return badRequest(emojiError);
         }
 
         const message = await db.query.messages.findFirst({

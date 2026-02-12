@@ -6,9 +6,9 @@
   "scripts": {
     "dev": "dotenv -e ../../.env -- bun --watch src/index.ts",
     "start": "dotenv -e ../../.env -- bun src/index.ts",
-    "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@chat/db": "workspace:*",
