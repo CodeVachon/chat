@@ -213,7 +213,6 @@ export async function POST(request: Request, { params }: RouteParams) {
         const messagePayload: MessagePayload = {
             id: newMessage.id,
             content: newMessage.content,
-            contentHtml: newMessage.contentHtml,
             channelId: newMessage.channelId,
             conversationId: newMessage.conversationId,
             authorId: newMessage.authorId,
