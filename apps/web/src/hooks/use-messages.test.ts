@@ -168,7 +168,7 @@ describe("useMessages – reaction race conditions", () => {
         expect(msg?.reactions).toHaveLength(0);
     });
 
-    it("toggleReaction does not update local state – relies on socket events", async () => {
+    it("toggleReaction applies optimistic update from API response", async () => {
         const socket = createMockSocket();
 
         const { result } = renderHook(() =>
@@ -192,11 +192,14 @@ describe("useMessages – reaction race conditions", () => {
             await result.current.toggleReaction("msg-1", "🎉");
         });
 
-        // State should NOT have changed from the API response alone
+        // State SHOULD have been updated from the API response
         const msg = result.current.messages.find((m) => m.id === "msg-1");
-        expect(msg?.reactions).toHaveLength(0);
+        expect(msg?.reactions).toHaveLength(1);
+        expect(msg?.reactions?.[0].emoji).toBe("🎉");
+        expect(msg?.reactions?.[0].count).toBe(1);
+        expect(msg?.reactions?.[0].users).toEqual([{ id: "user-1", name: "Alice" }]);
 
-        // Now simulate the socket event arriving
+        // Socket event arriving later should be a no-op (deduplication)
         act(() => {
             socket.__simulateEvent("reaction:add", {
                 messageId: "msg-1",
@@ -208,7 +211,67 @@ describe("useMessages – reaction race conditions", () => {
 
         const msgAfterSocket = result.current.messages.find((m) => m.id === "msg-1");
         expect(msgAfterSocket?.reactions).toHaveLength(1);
-        expect(msgAfterSocket?.reactions?.[0].emoji).toBe("🎉");
+        expect(msgAfterSocket?.reactions?.[0].count).toBe(1);
+    });
+
+    it("toggleReaction removal applies optimistic update from API response", async () => {
+        const socket = createMockSocket();
+
+        const msgWithReaction = makeMessage({
+            reactions: [
+                {
+                    emoji: "👍",
+                    count: 1,
+                    users: [{ id: "user-1", name: "Alice" }]
+                }
+            ]
+        });
+
+        global.fetch = vi
+            .fn()
+            .mockImplementation(() =>
+                Promise.resolve(
+                    mockFetchResponse({ messages: [msgWithReaction], nextCursor: null })
+                )
+            );
+
+        const { result } = renderHook(() =>
+            useMessages({ socket: socket as never, channelId: "ch-1" })
+        );
+
+        await waitFor(() => {
+            expect(result.current.isLoading).toBe(false);
+        });
+
+        // Mock the toggle API response for removal
+        global.fetch = vi
+            .fn()
+            .mockImplementation(() =>
+                Promise.resolve(
+                    mockFetchResponse({ action: "removed", userId: "user-1", userName: "Alice" })
+                )
+            );
+
+        await act(async () => {
+            await result.current.toggleReaction("msg-1", "👍");
+        });
+
+        // Reaction should be removed
+        const msg = result.current.messages.find((m) => m.id === "msg-1");
+        expect(msg?.reactions).toHaveLength(0);
+
+        // Socket event arriving later should also be a no-op
+        act(() => {
+            socket.__simulateEvent("reaction:remove", {
+                messageId: "msg-1",
+                userId: "user-1",
+                emoji: "👍",
+                userName: "Alice"
+            } satisfies ReactionPayload);
+        });
+
+        const msgAfterSocket = result.current.messages.find((m) => m.id === "msg-1");
+        expect(msgAfterSocket?.reactions).toHaveLength(0);
     });
 
     it("multiple users adding the same emoji produces correct count", async () => {

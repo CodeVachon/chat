@@ -301,9 +301,10 @@ export function useMessages({ socket, channelId, conversationId }: UseMessagesOp
     }, []);
 
     // Toggle reaction
-    // The API call triggers a socket event which is the single source of truth
-    // for updating reaction state. This avoids race conditions between the
-    // optimistic update and the socket event arriving at different times.
+    // We apply an optimistic update from the API response so the current user
+    // sees immediate feedback. The socket event handlers above have deduplication
+    // guards (checking if the user is already in the users list) so the subsequent
+    // socket event will be a no-op for this user, avoiding double-counting.
     const toggleReaction = useCallback(async (messageId: string, emoji: string) => {
         const response = await fetch(`/api/messages/${messageId}/reactions`, {
             method: "POST",
@@ -315,7 +316,68 @@ export function useMessages({ socket, channelId, conversationId }: UseMessagesOp
             throw new Error("Failed to toggle reaction");
         }
 
-        return await response.json();
+        const result = await response.json();
+
+        // Apply optimistic update from the confirmed API response
+        setState((prev) => ({
+            ...prev,
+            messages: prev.messages.map((m) => {
+                if (m.id !== messageId) return m;
+
+                const reactions = m.reactions || [];
+
+                if (result.action === "added") {
+                    const existing = reactions.find((r) => r.emoji === emoji);
+                    if (existing) {
+                        // Skip if already present (shouldn't happen, but guard)
+                        if (existing.users.some((u) => u.id === result.userId)) return m;
+                        return {
+                            ...m,
+                            reactions: reactions.map((r) =>
+                                r.emoji === emoji
+                                    ? {
+                                          ...r,
+                                          count: r.count + 1,
+                                          users: [
+                                              ...r.users,
+                                              { id: result.userId, name: result.userName }
+                                          ]
+                                      }
+                                    : r
+                            )
+                        };
+                    }
+                    return {
+                        ...m,
+                        reactions: [
+                            ...reactions,
+                            {
+                                emoji,
+                                count: 1,
+                                users: [{ id: result.userId, name: result.userName }]
+                            }
+                        ]
+                    };
+                } else {
+                    // removed
+                    return {
+                        ...m,
+                        reactions: reactions
+                            .map((r) => {
+                                if (r.emoji !== emoji) return r;
+                                return {
+                                    ...r,
+                                    count: r.count - 1,
+                                    users: r.users.filter((u) => u.id !== result.userId)
+                                };
+                            })
+                            .filter((r) => r.count > 0)
+                    };
+                }
+            })
+        }));
+
+        return result;
     }, []);
 
     return {
