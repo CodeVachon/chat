@@ -2,6 +2,7 @@
 
 import { useTheme } from "next-themes";
 import { createContext, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 
 import type { DateFormat, TimeFormat } from "@/lib/format-date";
 
@@ -63,6 +64,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
                 }
             } catch (error) {
                 console.error("Failed to fetch preferences:", error);
+                toast.error("Failed to load preferences");
             } finally {
                 setIsLoading(false);
             }
@@ -100,6 +102,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
                 });
             } catch (error) {
                 console.error("Failed to save preferences:", error);
+                toast.error("Failed to save preferences");
             }
         },
         [preferences, setTheme, applyPrimaryColor]

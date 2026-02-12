@@ -3,6 +3,7 @@
 import { MoreHorizontal, Shield, ShieldAlert, User } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -52,6 +53,7 @@ export default function MembersPage() {
                 }
             } catch (err) {
                 console.error("Error fetching members:", err);
+                toast.error("Failed to load members");
             } finally {
                 setIsLoading(false);
             }
@@ -77,6 +79,7 @@ export default function MembersPage() {
             }
         } catch (err) {
             console.error("Error changing role:", err);
+            toast.error("Failed to change member role");
         }
     };
 
@@ -93,6 +96,7 @@ export default function MembersPage() {
             }
         } catch (err) {
             console.error("Error removing member:", err);
+            toast.error("Failed to remove member");
         }
     };
 

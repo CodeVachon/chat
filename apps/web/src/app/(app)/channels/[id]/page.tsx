@@ -1,9 +1,11 @@
 "use client";
 
 import { use, useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
 
 import { MessageInput, MessageList, TypingIndicator } from "@/components/chat";
 import { Header, MemberList } from "@/components/layout";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useMessages, useSocket, useTyping } from "@/hooks";
 import { useSession } from "@/lib/auth-client";
 
@@ -65,6 +67,7 @@ export default function ChannelPage({ params }: ChannelPageProps) {
                 }
             } catch (err) {
                 console.error("Error fetching channel:", err);
+                toast.error("Failed to load channel");
             } finally {
                 setIsLoading(false);
             }
@@ -100,29 +103,45 @@ export default function ChannelPage({ params }: ChannelPageProps) {
 
     const handleSend = useCallback(
         async (content: string) => {
-            stopTyping();
-            await sendMessage(content);
+            try {
+                stopTyping();
+                await sendMessage(content);
+            } catch {
+                toast.error("Failed to send message");
+            }
         },
         [sendMessage, stopTyping]
     );
 
     const handleEdit = useCallback(
         async (messageId: string, content: string) => {
-            await editMessage(messageId, content);
+            try {
+                await editMessage(messageId, content);
+            } catch {
+                toast.error("Failed to edit message");
+            }
         },
         [editMessage]
     );
 
     const handleDelete = useCallback(
         async (messageId: string) => {
-            await deleteMessage(messageId);
+            try {
+                await deleteMessage(messageId);
+            } catch {
+                toast.error("Failed to delete message");
+            }
         },
         [deleteMessage]
     );
 
     const handleReact = useCallback(
         async (messageId: string, emoji: string) => {
-            await toggleReaction(messageId, emoji);
+            try {
+                await toggleReaction(messageId, emoji);
+            } catch {
+                toast.error("Failed to toggle reaction");
+            }
         },
         [toggleReaction]
     );
@@ -144,7 +163,7 @@ export default function ChannelPage({ params }: ChannelPageProps) {
     }
 
     return (
-        <div className="flex flex-1 overflow-hidden">
+        <div className="relative flex flex-1 overflow-hidden">
             <div className="flex flex-1 flex-col">
                 <Header
                     type="channel"
@@ -174,7 +193,21 @@ export default function ChannelPage({ params }: ChannelPageProps) {
                 />
             </div>
 
-            {showMembers && <MemberList members={members} />}
+            {/* Desktop: overlay member panel (doesn't push content) */}
+            {showMembers && (
+                <div className="absolute inset-y-0 right-0 hidden md:flex">
+                    <MemberList members={members} />
+                </div>
+            )}
+
+            {/* Mobile/Tablet: slide-out sheet */}
+            <div className="md:hidden">
+                <Sheet open={showMembers} onOpenChange={setShowMembers}>
+                    <SheetContent side="right" showCloseButton={false} className="!w-60 gap-0 p-0">
+                        <MemberList members={members} />
+                    </SheetContent>
+                </Sheet>
+            </div>
         </div>
     );
 }

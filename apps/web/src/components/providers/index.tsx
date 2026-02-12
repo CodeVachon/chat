@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { AuthProvider } from "./auth-provider";
 import { ChannelsProvider } from "./channels-provider";
 import { PreferencesProvider } from "./preferences-provider";
+import { SidebarProvider } from "./sidebar-provider";
 
 export function Providers({ children }: { children: ReactNode }) {
     return (
@@ -17,7 +18,9 @@ export function Providers({ children }: { children: ReactNode }) {
         >
             <AuthProvider>
                 <PreferencesProvider>
-                    <ChannelsProvider>{children}</ChannelsProvider>
+                    <ChannelsProvider>
+                        <SidebarProvider>{children}</SidebarProvider>
+                    </ChannelsProvider>
                 </PreferencesProvider>
             </AuthProvider>
         </ThemeProvider>

@@ -13,6 +13,8 @@ import {
     unauthorized
 } from "@/lib/api-utils";
 import { canViewChannel } from "@/lib/permissions";
+import { rateLimit } from "@/lib/rate-limit";
+import { validateEmoji } from "@/lib/validators";
 
 interface RouteParams {
     params: Promise<{ id: string }>;
@@ -21,6 +23,10 @@ interface RouteParams {
 // POST /api/messages/[id]/reactions - Toggle reaction
 export async function POST(request: Request, { params }: RouteParams) {
     try {
+        // Rate limit: 60 reactions per minute per IP
+        const rateLimited = await rateLimit("reactions", 60, 60_000);
+        if (rateLimited) return rateLimited;
+
         const user = await getAuthenticatedUser();
         if (!user) return unauthorized();
 
@@ -29,8 +35,9 @@ export async function POST(request: Request, { params }: RouteParams) {
         const body = await request.json();
         const { emoji } = body;
 
-        if (!emoji || emoji.trim().length === 0) {
-            return badRequest("Emoji is required");
+        const emojiError = validateEmoji(emoji);
+        if (emojiError) {
+            return badRequest(emojiError);
         }
 
         const message = await db.query.messages.findFirst({

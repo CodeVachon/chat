@@ -84,7 +84,6 @@ export interface SocketData {
 export interface MessagePayload {
     id: string;
     content: string;
-    contentHtml?: string | null;
     channelId?: string | null;
     conversationId?: string | null;
     authorId: string;
