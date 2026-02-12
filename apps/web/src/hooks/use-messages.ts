@@ -240,11 +240,16 @@ export function useMessages({ socket, channelId, conversationId }: UseMessagesOp
 
             const newMessage = await response.json();
 
-            // Optimistically add the message to state
-            setState((prev) => ({
-                ...prev,
-                messages: [...prev.messages, newMessage]
-            }));
+            // Add the message to state, skipping if the socket event already added it
+            setState((prev) => {
+                if (prev.messages.some((m) => m.id === newMessage.id)) {
+                    return prev;
+                }
+                return {
+                    ...prev,
+                    messages: [...prev.messages, newMessage]
+                };
+            });
 
             return newMessage;
         },
