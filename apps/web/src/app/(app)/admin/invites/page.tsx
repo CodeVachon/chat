@@ -2,6 +2,7 @@
 
 import { Check, Copy, LinkIcon, Mail, Trash, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -73,6 +74,7 @@ export default function InvitesPage() {
                 }
             } catch (err) {
                 console.error("Error fetching invites:", err);
+                toast.error("Failed to load invites");
             } finally {
                 setIsLoading(false);
             }
@@ -111,6 +113,7 @@ export default function InvitesPage() {
             }
         } catch (err) {
             console.error("Error creating link:", err);
+            toast.error("Failed to create invite link");
         } finally {
             setIsCreating(false);
         }
@@ -127,6 +130,7 @@ export default function InvitesPage() {
             }
         } catch (err) {
             console.error("Error deleting link:", err);
+            toast.error("Failed to delete invite link");
         }
     };
 
@@ -149,6 +153,7 @@ export default function InvitesPage() {
             }
         } catch (err) {
             console.error("Error handling request:", err);
+            toast.error("Failed to update access request");
         }
     };
 
@@ -171,6 +176,7 @@ export default function InvitesPage() {
             }
         } catch (err) {
             console.error("Error sending email invite:", err);
+            toast.error("Failed to send email invitation");
         } finally {
             setIsSendingEmail(false);
         }

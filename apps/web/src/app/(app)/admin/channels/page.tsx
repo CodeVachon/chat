@@ -2,6 +2,7 @@
 
 import { Archive, Hash, Lock, MoreHorizontal } from "lucide-react";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 import { CreateChannelModal } from "@/components/channel/create-channel-modal";
 import { Badge } from "@/components/ui/badge";
@@ -45,6 +46,7 @@ export default function ChannelsPage() {
                 }
             } catch (err) {
                 console.error("Error fetching channels:", err);
+                toast.error("Failed to load channels");
             } finally {
                 setIsLoading(false);
             }
@@ -70,6 +72,7 @@ export default function ChannelsPage() {
             }
         } catch (err) {
             console.error("Error archiving channel:", err);
+            toast.error("Failed to archive channel");
         }
     };
 
