@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { validateEmoji } from "./validators";
+import { validateEmoji, validateTransferOwnership } from "./validators";
 
 describe("validateEmoji", () => {
     it("returns null for a valid single emoji", () => {
@@ -48,5 +48,85 @@ describe("validateEmoji", () => {
     it("returns error for a very long string", () => {
         const veryLong = "🎉".repeat(100);
         expect(validateEmoji(veryLong)).toBe("Emoji must be 50 characters or less");
+    });
+});
+
+describe("validateTransferOwnership", () => {
+    const baseParams = {
+        newOwnerId: "user-2",
+        currentOwnerId: "user-1",
+        actorId: "user-1",
+        actorOrgRole: "member",
+        isNewOwnerMember: true
+    };
+
+    it("returns null for a valid transfer by channel owner", () => {
+        expect(validateTransferOwnership(baseParams)).toBeNull();
+    });
+
+    it("returns null for a valid transfer by org owner", () => {
+        expect(
+            validateTransferOwnership({
+                ...baseParams,
+                actorId: "user-3", // not the channel owner
+                actorOrgRole: "owner"
+            })
+        ).toBeNull();
+    });
+
+    it("returns null for a valid transfer by org admin", () => {
+        expect(
+            validateTransferOwnership({
+                ...baseParams,
+                actorId: "user-3",
+                actorOrgRole: "admin"
+            })
+        ).toBeNull();
+    });
+
+    it("returns error when newOwnerId is missing", () => {
+        expect(
+            validateTransferOwnership({
+                ...baseParams,
+                newOwnerId: undefined
+            })
+        ).toBe("newOwnerId is required");
+    });
+
+    it("returns error when newOwnerId is not a string", () => {
+        expect(
+            validateTransferOwnership({
+                ...baseParams,
+                newOwnerId: 42
+            })
+        ).toBe("newOwnerId is required");
+    });
+
+    it("returns error when a regular member tries to transfer", () => {
+        expect(
+            validateTransferOwnership({
+                ...baseParams,
+                actorId: "user-3", // not the channel owner
+                actorOrgRole: "member"
+            })
+        ).toBe("Forbidden");
+    });
+
+    it("returns error when transferring to the current owner", () => {
+        expect(
+            validateTransferOwnership({
+                ...baseParams,
+                newOwnerId: "user-1" // same as currentOwnerId
+            })
+        ).toBe("New owner must be a different user");
+    });
+
+    it("returns error when new owner is not a channel member", () => {
+        expect(
+            validateTransferOwnership({
+                ...baseParams,
+                isNewOwnerMember: false
+            })
+        ).toBe("New owner must be a member of the channel");
     });
 });
