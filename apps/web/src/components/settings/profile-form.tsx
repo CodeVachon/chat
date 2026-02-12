@@ -70,15 +70,15 @@ export function ProfileForm() {
             <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <div className="flex items-center gap-4">
-                        <Avatar className="h-20 w-20">
+                        <Avatar className="h-14 w-14 shrink-0 md:h-20 md:w-20">
                             <AvatarImage src={session.user.image || undefined} />
-                            <AvatarFallback className="text-2xl">
+                            <AvatarFallback className="text-lg md:text-2xl">
                                 {session.user.name?.charAt(0).toUpperCase()}
                             </AvatarFallback>
                         </Avatar>
-                        <div>
-                            <p className="font-medium">{session.user.email}</p>
-                            <p className="text-muted-foreground text-sm">
+                        <div className="min-w-0">
+                            <p className="truncate font-medium">{session.user.email}</p>
+                            <p className="text-muted-foreground truncate text-sm">
                                 Avatar changes coming soon
                             </p>
                         </div>

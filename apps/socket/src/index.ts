@@ -12,6 +12,9 @@ import type {
 } from "@chat/events";
 import { subscribeToEvents } from "@chat/events/subscriber";
 
+import { cleanupSocket, isSocketEventAllowed } from "./rate-limit.js";
+import { gracefulShutdown } from "./shutdown";
+
 const port = parseInt(process.env.SOCKET_PORT || "3369", 10);
 const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3367";
 
@@ -31,10 +34,14 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents, InterServerEve
 
 // Set up Redis adapter if REDIS_URL is provided
 const redisUrl = process.env.REDIS_URL;
+let pubClient: ReturnType<typeof createClient> | null = null;
+let subClient: ReturnType<typeof createClient> | null = null;
+let redisSubscriber: ReturnType<typeof subscribeToEvents> | null = null;
+
 if (redisUrl) {
     try {
-        const pubClient = createClient({ url: redisUrl });
-        const subClient = pubClient.duplicate();
+        pubClient = createClient({ url: redisUrl });
+        subClient = pubClient.duplicate();
 
         await Promise.all([pubClient.connect(), subClient.connect()]);
 
@@ -42,12 +49,21 @@ if (redisUrl) {
         console.log("Socket.io Redis adapter connected");
 
         // Subscribe to Redis pub/sub events from API routes
-        subscribeToEvents(io, redisUrl);
+        redisSubscriber = subscribeToEvents(io, redisUrl);
         console.log("Subscribed to Redis pub/sub events");
     } catch (error) {
         console.error("Failed to connect Redis adapter:", error);
     }
 }
+
+// Graceful shutdown handler
+async function shutdown() {
+    await gracefulShutdown({ redisSubscriber, pubClient, subClient, io, server });
+    process.exit(0);
+}
+
+process.on("SIGTERM", shutdown);
+process.on("SIGINT", shutdown);
 
 // Parse cookies from a cookie header string
 function parseCookies(cookieHeader: string): Record<string, string> {
@@ -65,11 +81,17 @@ function parseCookies(cookieHeader: string): Record<string, string> {
 io.use(async (socket, next) => {
     const cookieHeader = socket.handshake.headers.cookie || "";
     const cookies = parseCookies(cookieHeader);
-    const sessionToken = cookies["better-auth.session_token"];
+    const rawSessionToken = cookies["better-auth.session_token"];
 
-    if (!sessionToken) {
+    if (!rawSessionToken) {
         return next(new Error("Authentication required"));
     }
+
+    // better-auth stores signed cookies as "token.signature" — strip the
+    // HMAC-SHA256 base64 signature (last 44 chars after the final dot) so
+    // we can look up the raw token stored in the database.
+    const lastDot = rawSessionToken.lastIndexOf(".");
+    const sessionToken = lastDot !== -1 ? rawSessionToken.substring(0, lastDot) : rawSessionToken;
 
     const session = await db.query.sessions.findFirst({
         where: (sessions, { eq, and, gt }) =>
@@ -112,27 +134,33 @@ io.on("connection", (socket) => {
     // Join user's personal room for DMs
     socket.join(`user:${userId}`);
 
-    // Handle joining channels
+    // Handle joining channels (20 joins per minute)
     socket.on("join:channel", (channelId) => {
+        if (!isSocketEventAllowed(socket.id, "join:channel", 20, 60_000)) return;
         socket.join(`channel:${channelId}`);
         console.log(`User ${userId} joined channel ${channelId}`);
     });
 
     socket.on("leave:channel", (channelId) => {
+        if (!isSocketEventAllowed(socket.id, "leave:channel", 20, 60_000)) return;
         socket.leave(`channel:${channelId}`);
         console.log(`User ${userId} left channel ${channelId}`);
     });
 
     socket.on("join:conversation", (conversationId) => {
+        if (!isSocketEventAllowed(socket.id, "join:conversation", 20, 60_000)) return;
         socket.join(`conversation:${conversationId}`);
     });
 
     socket.on("leave:conversation", (conversationId) => {
+        if (!isSocketEventAllowed(socket.id, "leave:conversation", 20, 60_000)) return;
         socket.leave(`conversation:${conversationId}`);
     });
 
-    // Handle typing indicators
+    // Handle typing indicators (10 typing events per 10 seconds)
     socket.on("typing:start", (data) => {
+        if (!isSocketEventAllowed(socket.id, "typing:start", 10, 10_000)) return;
+
         const payload = {
             userId,
             userName,
@@ -147,6 +175,8 @@ io.on("connection", (socket) => {
     });
 
     socket.on("typing:stop", (data) => {
+        if (!isSocketEventAllowed(socket.id, "typing:stop", 10, 10_000)) return;
+
         const payload = {
             userId,
             userName,
@@ -163,6 +193,7 @@ io.on("connection", (socket) => {
     // Handle disconnection
     socket.on("disconnect", () => {
         console.log("Client disconnected:", socket.id);
+        cleanupSocket(socket.id);
 
         const userSockets = onlineUsers.get(userId);
         if (userSockets) {

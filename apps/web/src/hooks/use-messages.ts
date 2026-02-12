@@ -240,11 +240,16 @@ export function useMessages({ socket, channelId, conversationId }: UseMessagesOp
 
             const newMessage = await response.json();
 
-            // Optimistically add the message to state
-            setState((prev) => ({
-                ...prev,
-                messages: [...prev.messages, newMessage]
-            }));
+            // Add the message to state, skipping if the socket event already added it
+            setState((prev) => {
+                if (prev.messages.some((m) => m.id === newMessage.id)) {
+                    return prev;
+                }
+                return {
+                    ...prev,
+                    messages: [...prev.messages, newMessage]
+                };
+            });
 
             return newMessage;
         },
@@ -301,6 +306,10 @@ export function useMessages({ socket, channelId, conversationId }: UseMessagesOp
     }, []);
 
     // Toggle reaction
+    // We apply an optimistic update from the API response so the current user
+    // sees immediate feedback. The socket event handlers above have deduplication
+    // guards (checking if the user is already in the users list) so the subsequent
+    // socket event will be a no-op for this user, avoiding double-counting.
     const toggleReaction = useCallback(async (messageId: string, emoji: string) => {
         const response = await fetch(`/api/messages/${messageId}/reactions`, {
             method: "POST",
@@ -314,7 +323,7 @@ export function useMessages({ socket, channelId, conversationId }: UseMessagesOp
 
         const result = await response.json();
 
-        // Update reactions in state
+        // Apply optimistic update from the confirmed API response
         setState((prev) => ({
             ...prev,
             messages: prev.messages.map((m) => {
@@ -322,31 +331,11 @@ export function useMessages({ socket, channelId, conversationId }: UseMessagesOp
 
                 const reactions = m.reactions || [];
 
-                if (result.action === "removed") {
+                if (result.action === "added") {
                     const existing = reactions.find((r) => r.emoji === emoji);
-                    // Skip if socket event already removed it
-                    if (!existing || !existing.users.some((u) => u.id === result.userId)) return m;
-
-                    return {
-                        ...m,
-                        reactions: reactions
-                            .map((r) => {
-                                if (r.emoji !== emoji) return r;
-                                return {
-                                    ...r,
-                                    count: r.count - 1,
-                                    users: r.users.filter((u) => u.id !== result.userId)
-                                };
-                            })
-                            .filter((r) => r.count > 0)
-                    };
-                } else {
-                    // Add the reaction
-                    const existing = reactions.find((r) => r.emoji === emoji);
-                    // Skip if socket event already added it
-                    if (existing?.users.some((u) => u.id === result.userId)) return m;
-
                     if (existing) {
+                        // Skip if already present (shouldn't happen, but guard)
+                        if (existing.users.some((u) => u.id === result.userId)) return m;
                         return {
                             ...m,
                             reactions: reactions.map((r) =>
@@ -373,6 +362,21 @@ export function useMessages({ socket, channelId, conversationId }: UseMessagesOp
                                 users: [{ id: result.userId, name: result.userName }]
                             }
                         ]
+                    };
+                } else {
+                    // removed
+                    return {
+                        ...m,
+                        reactions: reactions
+                            .map((r) => {
+                                if (r.emoji !== emoji) return r;
+                                return {
+                                    ...r,
+                                    count: r.count - 1,
+                                    users: r.users.filter((u) => u.id !== result.userId)
+                                };
+                            })
+                            .filter((r) => r.count > 0)
                     };
                 }
             })
