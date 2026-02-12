@@ -12,6 +12,7 @@ import {
     serverError,
     unauthorized
 } from "@/lib/api-utils";
+import { rateLimit } from "@/lib/rate-limit";
 
 interface RouteParams {
     params: Promise<{ id: string }>;
@@ -132,6 +133,10 @@ export async function GET(request: Request, { params }: RouteParams) {
 // POST /api/dm/[id]/messages - Send DM message
 export async function POST(request: Request, { params }: RouteParams) {
     try {
+        // Rate limit: 30 messages per minute per IP
+        const rateLimited = await rateLimit("dm-messages", 30, 60_000);
+        if (rateLimited) return rateLimited;
+
         const user = await getAuthenticatedUser();
         if (!user) return unauthorized();
 
@@ -169,7 +174,6 @@ export async function POST(request: Request, { params }: RouteParams) {
         const messagePayload: MessagePayload = {
             id: newMessage.id,
             content: newMessage.content,
-            contentHtml: newMessage.contentHtml,
             channelId: newMessage.channelId,
             conversationId: newMessage.conversationId,
             authorId: newMessage.authorId,
