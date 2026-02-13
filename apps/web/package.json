@@ -17,6 +17,7 @@
     "@base-ui/react": "^1.1.0",
     "@chat/db": "workspace:*",
     "@chat/events": "workspace:*",
+    "@tanstack/react-virtual": "^3.13.18",
     "better-auth": "^1.4.18",
     "class-variance-authority": "^0.7.1",
     "cloudinary": "^2.9.0",

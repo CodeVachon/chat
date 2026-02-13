@@ -1,6 +1,7 @@
 "use client";
 
 import type { MessagePayload } from "@chat/events";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { useCallback, useEffect, useRef } from "react";
 
 import { MessageItem } from "./message-item";
@@ -29,23 +30,41 @@ export function MessageList({
     onThreadClick
 }: MessageListProps) {
     const scrollRef = useRef<HTMLDivElement>(null);
-    const bottomRef = useRef<HTMLDivElement>(null);
     const prevMessagesLengthRef = useRef(messages.length);
 
-    // Scroll to bottom on new messages
+    const virtualizer = useVirtualizer({
+        count: messages.length,
+        getScrollElement: () => scrollRef.current,
+        estimateSize: () => 60,
+        overscan: 10,
+        getItemKey: (index) => messages[index].id
+    });
+
+    // Scroll to bottom on new messages (appended at end)
     useEffect(() => {
         if (messages.length > prevMessagesLengthRef.current) {
-            bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+            // Only auto-scroll if we were already near the bottom
+            const el = scrollRef.current;
+            if (el) {
+                const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
+                if (isNearBottom) {
+                    requestAnimationFrame(() => {
+                        virtualizer.scrollToIndex(messages.length - 1, { align: "end" });
+                    });
+                }
+            }
         }
         prevMessagesLengthRef.current = messages.length;
-    }, [messages.length]);
+    }, [messages.length, virtualizer]);
 
     // Initial scroll to bottom
     useEffect(() => {
-        bottomRef.current?.scrollIntoView();
-    }, []);
+        if (messages.length > 0) {
+            virtualizer.scrollToIndex(messages.length - 1, { align: "end" });
+        }
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Handle scroll for loading more
+    // Handle scroll for loading more (when scrolled to top)
     const handleScroll = useCallback(
         (e: React.UIEvent<HTMLDivElement>) => {
             const target = e.currentTarget;
@@ -55,6 +74,8 @@ export function MessageList({
         },
         [hasMore, isLoading, onLoadMore]
     );
+
+    const virtualItems = virtualizer.getVirtualItems();
 
     return (
         <div className="flex-1 overflow-hidden">
@@ -75,32 +96,46 @@ export function MessageList({
                     </div>
                 )}
 
-                <div className="space-y-1">
-                    {messages.map((message, index) => {
-                        const prevMessage = index > 0 ? messages[index - 1] : null;
-                        const showAvatar =
-                            !prevMessage ||
-                            prevMessage.authorId !== message.authorId ||
-                            new Date(message.createdAt).getTime() -
-                                new Date(prevMessage.createdAt).getTime() >
-                                5 * 60 * 1000;
+                {messages.length > 0 && (
+                    <div
+                        className="relative w-full"
+                        style={{ height: `${virtualizer.getTotalSize()}px` }}
+                    >
+                        {virtualItems.map((virtualItem) => {
+                            const message = messages[virtualItem.index];
+                            const prevMessage =
+                                virtualItem.index > 0 ? messages[virtualItem.index - 1] : null;
+                            const showAvatar =
+                                !prevMessage ||
+                                prevMessage.authorId !== message.authorId ||
+                                new Date(message.createdAt).getTime() -
+                                    new Date(prevMessage.createdAt).getTime() >
+                                    5 * 60 * 1000;
 
-                        return (
-                            <MessageItem
-                                key={message.id}
-                                message={message}
-                                isOwn={message.authorId === currentUserId}
-                                showAvatar={showAvatar}
-                                onEdit={onEdit}
-                                onDelete={onDelete}
-                                onReact={onReact}
-                                onThreadClick={onThreadClick}
-                            />
-                        );
-                    })}
-                </div>
-
-                <div ref={bottomRef} />
+                            return (
+                                <div
+                                    key={virtualItem.key}
+                                    ref={virtualizer.measureElement}
+                                    data-index={virtualItem.index}
+                                    className="absolute top-0 left-0 w-full"
+                                    style={{
+                                        transform: `translateY(${virtualItem.start}px)`
+                                    }}
+                                >
+                                    <MessageItem
+                                        message={message}
+                                        isOwn={message.authorId === currentUserId}
+                                        showAvatar={showAvatar}
+                                        onEdit={onEdit}
+                                        onDelete={onDelete}
+                                        onReact={onReact}
+                                        onThreadClick={onThreadClick}
+                                    />
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
             </div>
         </div>
     );
