@@ -35,9 +35,12 @@ function makeMessage(overrides: Partial<MessagePayload> = {}): MessagePayload {
         channelId: "ch-1",
         conversationId: null,
         authorId: "user-1",
+        parentId: null,
         createdAt: new Date().toISOString(),
-        author: { id: "user-1", name: "Alice" },
+        editedAt: null,
+        author: { id: "user-1", name: "Alice", image: null },
         reactions: [],
+        attachments: [],
         ...overrides
     };
 }
@@ -51,13 +54,159 @@ function mockFetchResponse(data: unknown) {
 }
 
 // ---------------------------------------------------------------------------
-// Tests
+// Optimistic send + rollback tests
+// ---------------------------------------------------------------------------
+
+describe("useMessages – sendMessage optimistic update", () => {
+    beforeEach(() => {
+        vi.restoreAllMocks();
+        global.fetch = vi
+            .fn()
+            .mockResolvedValue(mockFetchResponse({ messages: [], nextCursor: null }));
+    });
+
+    it("adds optimistic message immediately before API responds", async () => {
+        const socket = createMockSocket();
+        let fetchResolve: (value: Response) => void;
+        const fetchPromise = new Promise<Response>((resolve) => {
+            fetchResolve = resolve;
+        });
+
+        const { result } = renderHook(() =>
+            useMessages({ socket: socket as never, channelId: "ch-1" })
+        );
+
+        await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+        (global.fetch as ReturnType<typeof vi.fn>).mockReturnValueOnce(fetchPromise);
+
+        let sendPromise: Promise<unknown>;
+        act(() => {
+            sendPromise = result.current.sendMessage("Hello world");
+        });
+
+        expect(result.current.messages).toHaveLength(1);
+        expect(result.current.messages[0].content).toBe("Hello world");
+        expect(result.current.messages[0].id).toMatch(/^temp-/);
+
+        const serverMsg = makeMessage({ id: "server-1", content: "Hello world" });
+        await act(async () => {
+            fetchResolve!({
+                ok: true,
+                json: () => Promise.resolve(serverMsg)
+            } as Response);
+            await sendPromise!;
+        });
+
+        expect(result.current.messages).toHaveLength(1);
+        expect(result.current.messages[0].id).toBe("server-1");
+    });
+
+    it("rolls back optimistic message on API failure", async () => {
+        const socket = createMockSocket();
+
+        const { result } = renderHook(() =>
+            useMessages({ socket: socket as never, channelId: "ch-1" })
+        );
+
+        await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+        (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+            ok: false,
+            status: 500,
+            json: () => Promise.resolve({ error: "Server error" })
+        });
+
+        let error: Error | undefined;
+        await act(async () => {
+            try {
+                await result.current.sendMessage("This will fail");
+            } catch (e) {
+                error = e as Error;
+            }
+        });
+
+        expect(result.current.messages).toHaveLength(0);
+        expect(error?.message).toBe("Failed to send message");
+    });
+
+    it("replaces temp message when socket event arrives before API response", async () => {
+        const socket = createMockSocket();
+        let fetchResolve: (value: Response) => void;
+        const fetchPromise = new Promise<Response>((resolve) => {
+            fetchResolve = resolve;
+        });
+
+        const { result } = renderHook(() =>
+            useMessages({ socket: socket as never, channelId: "ch-1" })
+        );
+
+        await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+        (global.fetch as ReturnType<typeof vi.fn>).mockReturnValueOnce(fetchPromise);
+
+        let sendPromise: Promise<unknown>;
+        act(() => {
+            sendPromise = result.current.sendMessage("Hello world");
+        });
+
+        expect(result.current.messages).toHaveLength(1);
+        expect(result.current.messages[0].id).toMatch(/^temp-/);
+
+        const serverMsg = makeMessage({ id: "server-2", content: "Hello world" });
+        act(() => {
+            socket.__simulateEvent("message:new", serverMsg);
+        });
+
+        expect(result.current.messages).toHaveLength(1);
+        expect(result.current.messages[0].id).toBe("server-2");
+
+        await act(async () => {
+            fetchResolve!({
+                ok: true,
+                json: () => Promise.resolve(serverMsg)
+            } as Response);
+            await sendPromise!;
+        });
+
+        expect(result.current.messages).toHaveLength(1);
+        expect(result.current.messages[0].id).toBe("server-2");
+    });
+
+    it("handles network error during send with rollback", async () => {
+        const socket = createMockSocket();
+
+        const { result } = renderHook(() =>
+            useMessages({ socket: socket as never, channelId: "ch-1" })
+        );
+
+        await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+        (global.fetch as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+            new TypeError("Failed to fetch")
+        );
+
+        let error: Error | undefined;
+        await act(async () => {
+            try {
+                await result.current.sendMessage("Network failure");
+            } catch (e) {
+                error = e as Error;
+            }
+        });
+
+        expect(result.current.messages).toHaveLength(0);
+        expect(error?.message).toBe("Failed to fetch");
+    });
+});
+
+// ---------------------------------------------------------------------------
+// Reaction race condition tests
 // ---------------------------------------------------------------------------
 
 describe("useMessages – reaction race conditions", () => {
     beforeEach(() => {
         vi.restoreAllMocks();
-        // Mock fetch for initial message load
         global.fetch = vi.fn().mockImplementation(() =>
             Promise.resolve(
                 mockFetchResponse({
@@ -83,7 +232,7 @@ describe("useMessages – reaction race conditions", () => {
             socket.__simulateEvent("reaction:add", {
                 messageId: "msg-1",
                 userId: "user-2",
-                emoji: "👍",
+                emoji: "\u{1F44D}",
                 userName: "Bob"
             } satisfies ReactionPayload);
         });
@@ -91,7 +240,7 @@ describe("useMessages – reaction race conditions", () => {
         const msg = result.current.messages.find((m) => m.id === "msg-1");
         expect(msg?.reactions).toHaveLength(1);
         expect(msg?.reactions?.[0]).toEqual({
-            emoji: "👍",
+            emoji: "\u{1F44D}",
             count: 1,
             users: [{ id: "user-2", name: "Bob" }]
         });
@@ -111,7 +260,7 @@ describe("useMessages – reaction race conditions", () => {
         const payload: ReactionPayload = {
             messageId: "msg-1",
             userId: "user-2",
-            emoji: "👍",
+            emoji: "\u{1F44D}",
             userName: "Bob"
         };
 
@@ -132,7 +281,7 @@ describe("useMessages – reaction race conditions", () => {
         const msgWithReaction = makeMessage({
             reactions: [
                 {
-                    emoji: "👍",
+                    emoji: "\u{1F44D}",
                     count: 1,
                     users: [{ id: "user-2", name: "Bob" }]
                 }
@@ -159,7 +308,7 @@ describe("useMessages – reaction race conditions", () => {
             socket.__simulateEvent("reaction:remove", {
                 messageId: "msg-1",
                 userId: "user-2",
-                emoji: "👍",
+                emoji: "\u{1F44D}",
                 userName: "Bob"
             } satisfies ReactionPayload);
         });
@@ -179,7 +328,6 @@ describe("useMessages – reaction race conditions", () => {
             expect(result.current.isLoading).toBe(false);
         });
 
-        // Mock the toggle API response
         global.fetch = vi
             .fn()
             .mockImplementation(() =>
@@ -189,22 +337,20 @@ describe("useMessages – reaction race conditions", () => {
             );
 
         await act(async () => {
-            await result.current.toggleReaction("msg-1", "🎉");
+            await result.current.toggleReaction("msg-1", "\u{1F389}");
         });
 
-        // State SHOULD have been updated from the API response
         const msg = result.current.messages.find((m) => m.id === "msg-1");
         expect(msg?.reactions).toHaveLength(1);
-        expect(msg?.reactions?.[0].emoji).toBe("🎉");
+        expect(msg?.reactions?.[0].emoji).toBe("\u{1F389}");
         expect(msg?.reactions?.[0].count).toBe(1);
         expect(msg?.reactions?.[0].users).toEqual([{ id: "user-1", name: "Alice" }]);
 
-        // Socket event arriving later should be a no-op (deduplication)
         act(() => {
             socket.__simulateEvent("reaction:add", {
                 messageId: "msg-1",
                 userId: "user-1",
-                emoji: "🎉",
+                emoji: "\u{1F389}",
                 userName: "Alice"
             } satisfies ReactionPayload);
         });
@@ -220,7 +366,7 @@ describe("useMessages – reaction race conditions", () => {
         const msgWithReaction = makeMessage({
             reactions: [
                 {
-                    emoji: "👍",
+                    emoji: "\u{1F44D}",
                     count: 1,
                     users: [{ id: "user-1", name: "Alice" }]
                 }
@@ -243,7 +389,6 @@ describe("useMessages – reaction race conditions", () => {
             expect(result.current.isLoading).toBe(false);
         });
 
-        // Mock the toggle API response for removal
         global.fetch = vi
             .fn()
             .mockImplementation(() =>
@@ -253,19 +398,17 @@ describe("useMessages – reaction race conditions", () => {
             );
 
         await act(async () => {
-            await result.current.toggleReaction("msg-1", "👍");
+            await result.current.toggleReaction("msg-1", "\u{1F44D}");
         });
 
-        // Reaction should be removed
         const msg = result.current.messages.find((m) => m.id === "msg-1");
         expect(msg?.reactions).toHaveLength(0);
 
-        // Socket event arriving later should also be a no-op
         act(() => {
             socket.__simulateEvent("reaction:remove", {
                 messageId: "msg-1",
                 userId: "user-1",
-                emoji: "👍",
+                emoji: "\u{1F44D}",
                 userName: "Alice"
             } satisfies ReactionPayload);
         });
@@ -289,13 +432,13 @@ describe("useMessages – reaction race conditions", () => {
             socket.__simulateEvent("reaction:add", {
                 messageId: "msg-1",
                 userId: "user-2",
-                emoji: "👍",
+                emoji: "\u{1F44D}",
                 userName: "Bob"
             });
             socket.__simulateEvent("reaction:add", {
                 messageId: "msg-1",
                 userId: "user-3",
-                emoji: "👍",
+                emoji: "\u{1F44D}",
                 userName: "Charlie"
             });
         });
